@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<HTML>
+<HEAD>
+<TITLE>States and Commands</TITLE>
+<meta charset="utf-8">
+<meta name="author" content="Mark Fletcher">
+<meta name="date" content="2021-05-24">
+<meta name="description" content="Trying out using the command and state design patterns">
+<style>
+
+body {
+	background-color: #666;
+}
+
+td, #piece {
+	width: 50px;
+	height: 50px;
+}
+
+td {
+	background-color: #222;
+}
+.validloc {
+	background-color: #ccc;
+}
+
+#piece {
+	background-color: #dfd;
+}
+
+</style>
+<script>
+/* Mark Fletcher
+ * 2021-05-24
+ *
+ * Trying out using the command and state design patterns.
+ *
+ * A bit odd to do this with js, I know, but what can you do -- it's a good
+ * way to prototype things like this without a ton of setup and boilerplate
+ * overhead.
+ */
+
+
+/**
+ * State object.
+ * Contains the valid commands provided by a particular state. The values
+ * provided for the parameters should be entries from the commands list.
+ *
+ * @param up The command to execute for the up action
+ * @param right The command to execute for the right action
+ * @param down The command to execute for the down action
+ * @param left The command to execute for the left action
+ */
+function State(up, right, down, left){
+	this.up = up;
+	this.right = right;
+	this.down = down;
+	this.left = left;
+}
+State.prototype = Object.create(null);
+
+
+/**
+ * List of references to DOM objects that will be used.
+ * The keys are the ids of the elements, and the values will be automatically
+ * assigned by the load logic.
+ */
+var refs = {
+	'piece': null,
+	'north': null,
+	'east': null,
+	'south': null,
+	'west': null,
+	'center': null
+};
+
+
+/**
+ * Commands list.
+ * Contains the various commands that can be issued and the action to execute
+ * for each.
+ *
+ * The actions should follow the "interface" of a function that takes a single
+ * parameter which is the object to act upon and returns the state to
+ * transition to (the new current state) or FALSE-y if no transition should take
+ * place.
+ *
+ * Side note:
+ * I assume you would typically have something else determining the next state
+ * that takes more into account, but since this is a simple example having un-
+ * complicated next-state logic, this is a perfectly fine and consistent place
+ * for the next state to be defined.
+ */
+var commands = {
+	'hold': function(obj){
+		obj.style.backgroundColor = randColor();
+		return false;
+	},
+
+	'north': function(obj){
+		refs.north.appendChild(obj);
+		return states.north;
+	},
+
+	'east': function(obj){
+		refs.east.appendChild(obj);
+		return states.east;
+	},
+
+	'south': function(obj){
+		refs.south.appendChild(obj);
+		return states.south;
+	},
+
+	'west': function(obj){
+		refs.west.appendChild(obj);
+		return states.west;
+	},
+
+	'center': function(obj){
+		refs.center.appendChild(obj);
+		return states.center;
+	}
+};
+
+/**
+ * States list.
+ * List of the different possible states. Entries are State objects that define
+ * the valid command for each potential input when in a given state.
+ */
+var states = {
+	'center': new State(
+		commands.north,
+		commands.east,
+		commands.south,
+		commands.west
+	),
+
+	'north': new State(
+		commands.hold,
+		commands.hold,
+		commands.center,
+		commands.hold
+	),
+
+	'east': new State(
+		commands.hold,
+		commands.hold,
+		commands.hold,
+		commands.center
+	),
+
+	'south': new State(
+		commands.center,
+		commands.hold,
+		commands.hold,
+		commands.hold
+	),
+
+	'west': new State(
+		commands.hold,
+		commands.center,
+		commands.hold,
+		commands.hold
+	),
+};
+
+/**
+ * Execute a given command on a given object.
+ * If the object is already tracking its current state, then that will be used
+ * to resolve the command to use. Otherwise, the commands list will be used to
+ * reference the command to use. In either case, the new state will be assigned
+ * to the object as applicable.
+ */
+function execute(obj, cmd){
+	var com = commands[cmd];
+	if(obj.currentState) com = obj.currentState[cmd];
+	obj.currentState = com(obj) || obj.currentState || null;
+}
+
+/**
+ * Get a random color in hex color notation.
+ */
+function randColor(){
+	return '#'
+		+ ('0' + Math.floor(Math.random() * 256).toString(16)).substr(-2)
+		+ ('0' + Math.floor(Math.random() * 256).toString(16)).substr(-2)
+		+ ('0' + Math.floor(Math.random() * 256).toString(16)).substr(-2)
+	;
+}
+
+/**
+ * Key event listener.
+ * Defines what to do on those key presses and such. Should be bound to the
+ * relevant key event rather than called directly.
+ */
+function keylisten(e){
+	if(!e || ! e.key) return;
+
+	var acted = true;
+	switch(e.key){
+		case 'w':
+		case 'ArrowUp':
+			execute(refs.piece, 'up');
+		break;
+
+		case 'd':
+		case 'ArrowRight':
+			execute(refs.piece, 'right');
+		break;
+
+		case 's':
+		case 'ArrowDown':
+			execute(refs.piece, 'down');
+		break;
+
+		case 'a':
+		case 'ArrowLeft':
+			execute(refs.piece, 'left');
+		break;
+
+		// Execute a command outside of the state
+		// Good practice? Bad practice? Who knows?
+		case ' ':
+			commands.hold(refs.piece);
+		break;
+
+		default: acted = false;
+	}
+
+	if(acted){
+		if(e.preventDefault) e.preventDefault();
+		if(e.stopPropagation) e.stopPropagation();
+	}
+}
+
+/**
+ * Load logic -- triggered when document is loaded and ready.
+ */
+window.addEventListener('load', function(){
+	for(var i in refs){
+		refs[i] = document.getElementById(i);
+		if(!refs[i]){
+			console.error('Invalid identifier in references (' + i + ')');
+			return;
+		}
+	}
+
+	execute(refs.piece, 'center');
+	window.addEventListener('keydown', keylisten);
+
+	document.getElementById('errord').style.display = 'none';
+});
+
+</script>
+</HEAD><BODY>
+<TABLE><TBODY><TR>
+	<TD></TD>
+	<TD id="north" class="validloc"></TD>
+	<TD></TD>
+</TR><TR>
+	<TD id="west" class="validloc"></TD>
+	<TD id="center" class="validloc"><div id="piece"></div></TD>
+	<TD id="east" class="validloc"></TD>
+</TR><TR>
+	<TD></TD>
+	<TD id="south" class="validloc"></TD>
+	<TD></TD>
+</TR></TBODY></TABLE>
+<h2 id="errord" style="color: red">Oops, a no bueno occurred :(</h2>
+</BODY>
+</HTML>
