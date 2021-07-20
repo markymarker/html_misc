@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<HTML><HEAD>
+<TITLE>Drawer Fader</TITLE>
+<meta charset="utf-8">
+<meta name="author" content="Mark Fletcher">
+<meta name="date" content="2021-07-20">
+<meta name="description" content="Draw and fade and draw and fade and">
+<style>
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 10px;
+  overflow: hidden;
+  background-color: #666;
+}
+
+#drawarea {
+  width: 100%;
+  height: 100%;
+  min-width: 200px;
+  min-height: 200px;
+  border: 1px solid orangered;
+}
+
+</style>
+<script>
+/* Mark Fletcher
+ * 2021-07-20
+ *
+ * Just something that will look cool, hopefully.
+ */
+
+/**
+ * Drawer object.
+ * Assigned to a canvas and given a reference to said canvas. Will do the
+ * drawing for that the canvas it is assigned to and handle any internal
+ * tracking needed.
+ *
+ * Some fun values for (size, step):
+ *   (5, 18), (16, 42)
+ *   (20, 24)
+ *   (120, 80)
+ *
+ * @param can The canvas that this drawer is assigned to
+ */
+function Drawer(can){
+  this.canvas = can;
+  this.ctx = can.getContext('2d');
+
+  this.color = '#000000ff';
+  this.newColor = this.color;
+  this.bgColor = '#6666661b';
+
+  this.px = 400;
+  this.py = 400;
+  this.psize = 20;
+  this.pstep = 24;
+  this.circular = true;
+}
+Drawer.prototype = Object.create(null);
+
+Drawer.prototype.getRandomPoint = function(){
+};
+
+/**
+ * Draw the background over top of whatever is on the canvas.
+ */
+Drawer.prototype.bgCover = function(){
+  this.ctx.fillStyle = this.bgColor;
+  this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+};
+
+/**
+ * Run the color shifting logic.
+ * Will shift toward the new color, if it differs from the current color.
+ * Otherwise, will run a small probability sim and maybe pick a new target
+ * color.
+ */
+Drawer.prototype.colorShift = function(){
+  if(this.newColor === this.color){
+    if(Math.random() < 0.02) this.newColor = randColor();
+    return;
+  }
+
+  var oc = parseInt(this.color.substr(1), 16);
+  var or = (oc >> 16) & 0xff;
+  var og = (oc >>  8) & 0xff;
+  var ob =  oc        & 0xff;
+
+  var nc = parseInt(this.newColor.substr(1), 16);
+  var nr = (nc >> 16) & 0xff;
+  var ng = (nc >>  8) & 0xff;
+  var nb =  nc        & 0xff;
+
+  if(or < nr) ++or;
+  else if(or > nr) --or;
+
+  if(og < ng) ++og;
+  else if(og > ng) --og;
+
+  if(ob < nb) ++ob;
+  else if(ob > nb) --ob;
+
+  this.color = '#'
+    + ('0' + or.toString(16)).substr(-2)
+    + ('0' + og.toString(16)).substr(-2)
+    + ('0' + ob.toString(16)).substr(-2);
+};
+
+/**
+ * Run the movement logic.
+ * Pick some distances, make the move, check the bounds.
+ */
+Drawer.prototype.move = function(){
+  this.px += this.pstep - Math.floor(Math.random() * this.pstep * 2 + 0.5);
+  if(this.px > this.canvas.width + 10) this.px = this.canvas.width + 10;
+  else if(this.px < -10) this.px = -10;
+
+  this.py += this.pstep - Math.floor(Math.random() * this.pstep * 2 + 0.5);
+  if(this.py > this.canvas.height + 10) this.py = this.canvas.height + 10;
+  else if(this.py < -10) this.py = -10;
+};
+
+/**
+ * Draw a frame of animation for the canvas this Drawer is assigned to.
+ */
+Drawer.prototype.drawFrame = function(){
+  this.move();
+  this.colorShift();
+
+  this.ctx.fillStyle = this.color;
+
+  if(!this.circular){
+    this.ctx.fillRect(this.px, this.py, this.psize, this.psize);
+  } else {
+    this.ctx.beginPath();
+    this.ctx.arc(this.px, this.py, this.psize, 0, Math.PI * 2);
+    this.ctx.closePath();
+    this.ctx.fill();
+  }
+};
+
+
+/**
+ * List of references to DOM canvases that will be used.
+ * The values will be automatically assigned by the load logic.
+ */
+var canvii = [];
+
+
+/**
+ * Get a random color in hex color notation.
+ */
+function randColor(){
+	return '#'
+		+ ('0' + Math.floor(Math.random() * 256).toString(16)).substr(-2)
+		+ ('0' + Math.floor(Math.random() * 256).toString(16)).substr(-2)
+		+ ('0' + Math.floor(Math.random() * 256).toString(16)).substr(-2)
+	;
+}
+
+
+/**
+ * Animation logic.
+ * Once active, will make the calls to continue repeating itself.
+ */
+function animLoop(){
+  var isBgTime = (animLoop.frameCount % 10) === 0;
+
+  for(var j = 0; j < canvii.length; ++j){
+    var c = canvii[j];
+    if(isBgTime) c.drawer.bgCover();
+    c.drawer.drawFrame();
+  }
+
+  ++animLoop.frameCount;
+  window.requestAnimationFrame(animLoop);
+}
+animLoop.frameCount = 0;
+
+
+/**
+ * Adjust the resolutions of the canvii to match their size on screen.
+ * Meant to be used when e.g. resizing events occur.
+ * TODO: Debounce and maybe capture a frame before things get cleared to restore after
+ */
+function adjustSizes(){
+  drawareaSpecialInit();
+  for(var j = 0; j < canvii.length; ++j){
+    var c = canvii[j];
+    c.width = c.clientWidth;
+    c.height = c.clientHeight;
+  }
+}
+
+/**
+ * Special setup for drawarea canvas, if present.
+ * The drawarea canvas is meant be made to fill the window.
+ */
+function drawareaSpecialInit(){
+  var c = document.getElementById('drawarea');
+  if(!c){
+    console.info('drawarea not found');
+    return;
+  }
+  c.style.width = (window.innerWidth - 20) + 'px';
+  c.style.height = (window.innerHeight - 20) + 'px';
+}
+
+/**
+ * Load logic -- triggered when document is loaded and ready.
+ */
+window.addEventListener('load', function(){
+  var clist = document.getElementsByTagName('canvas');
+  for(var j = 0; j < clist.length; ++j){
+    var c = clist[j];
+    c.drawer = new Drawer(c);
+    canvii.push(c);
+  }
+
+  adjustSizes();
+  window.addEventListener('resize', adjustSizes);
+
+  document.getElementById('errord').style.display = 'none';
+
+  animLoop();
+});
+
+</script>
+</HEAD><BODY>
+<h2 id="errord" style="color: red">Oops, a no bueno occurred :(</h2>
+<canvas id="drawarea">Well, looks like no canvas for you</canvas>
+</BODY></HTML>
