@@ -26,6 +26,15 @@ body {
   border: 1px solid orangered;
 }
 
+#minican {
+  position: fixed;
+  bottom: 0;
+  right: 0;
+  width: 300px;
+  height: 200px;
+  border: 1px solid orange;
+}
+
 </style>
 <script>
 /* Mark Fletcher
@@ -34,6 +43,9 @@ body {
  * Just something that will look cool, hopefully.
  */
 
+// Polyfill Math.sign if not present
+if(!Math.sign) Math.sign = function(x){ return ((x > 0) - (x < 0)) || +x; };
+
 /**
  * Drawer object.
  * Assigned to a canvas and given a reference to said canvas. Will do the
@@ -41,9 +53,19 @@ body {
  * tracking needed.
  *
  * Some fun values for (size, step):
- *   (5, 18), (16, 42)
- *   (20, 24)
- *   (120, 80)
+ * With MOVE_RAND:
+ *   (8, 18), (32, 42)
+ *   (40, 24)
+ *   (240, 80)
+ * With MOVE_POINT:
+ *   (4, 2), (240, 1)
+ *   (20, 4), (20, 10)
+ *   (10, 7)
+ *   (4, 16), (20, 30)
+ *   (50, 80) with bgColor = #6663
+ *
+ * Some fun alpha values for bgColor:
+ *   04, 1b, 2b, 42, 85, ff
  *
  * @param can The canvas that this drawer is assigned to
  */
@@ -51,19 +73,44 @@ function Drawer(can){
   this.canvas = can;
   this.ctx = can.getContext('2d');
 
-  this.color = '#000000ff';
+  this.color = '#000000';
   this.newColor = this.color;
   this.bgColor = '#6666661b';
 
   this.px = 400;
   this.py = 400;
-  this.psize = 20;
-  this.pstep = 24;
+  this.psize = 10;
+  this.pstep = 7;
+  this.newPoint = null;
+
   this.circular = true;
+  this.moveType = Drawer.MOVE_TYPES.MOVE_POINT;
+  this.showInfo = true;
+
+  this.ctx.font = '10px sans-serif';
+  this.ctx.textAlign = 'right';
+  this.ctx.textBaseline = 'top';
 }
 Drawer.prototype = Object.create(null);
 
+/**
+ * Movement type constants.
+ */
+Drawer.MOVE_TYPES = {
+  MOVE_RAND: 1,
+  MOVE_POINT: 2
+};
+
+/**
+ * Pick a random point in the bounds of the canvas.
+ *
+ * @return An object of the form {x: 0, y: 0} with the coordinates
+ */
 Drawer.prototype.getRandomPoint = function(){
+  return {
+    x: Math.floor(Math.random() * this.canvas.width),
+    y: Math.floor(Math.random() * this.canvas.height)
+  };
 };
 
 /**
@@ -82,7 +129,7 @@ Drawer.prototype.bgCover = function(){
  */
 Drawer.prototype.colorShift = function(){
   if(this.newColor === this.color){
-    if(Math.random() < 0.02) this.newColor = randColor();
+    if(Math.random() < 0.005) this.newColor = randColor();
     return;
   }
 
@@ -112,17 +159,93 @@ Drawer.prototype.colorShift = function(){
 };
 
 /**
- * Run the movement logic.
+ * Run the point movement logic.
+ * Assign a new target point if one not set already, then move linearly toward
+ * it.
+ *
+ * Possible TODO's:
+ * - Direct linear movement instead of only on x=y, x=c, y=c, etc.
+ * - Use equations (e.g. parabola, x^3, ellipse, etc.) for point picking
+ */
+Drawer.prototype.movePoint = function(){
+  if(!this.newPoint) this.newPoint = this.getRandomPoint();
+
+  var xdiff = this.newPoint.x - this.px;
+  var ydiff = this.newPoint.y - this.py;
+
+  if(Math.abs(xdiff) > this.pstep){
+    this.px += this.pstep * Math.sign(xdiff);
+  } else {
+    this.px = this.newPoint.x;
+  }
+
+  if(Math.abs(ydiff) > this.pstep){
+    this.py += this.pstep * Math.sign(ydiff);
+  } else {
+    this.py = this.newPoint.y;
+  }
+
+  if(this.px === this.newPoint.x && this.py === this.newPoint.y){
+    this.newPoint = null;
+  }
+};
+
+/**
+ * Run the random movement logic.
  * Pick some distances, make the move, check the bounds.
  */
-Drawer.prototype.move = function(){
-  this.px += this.pstep - Math.floor(Math.random() * this.pstep * 2 + 0.5);
+Drawer.prototype.moveRand = function(){
+  this.px += this.pstep - Math.floor(Math.random() * (this.pstep * 2 + 1));
   if(this.px > this.canvas.width + 10) this.px = this.canvas.width + 10;
   else if(this.px < -10) this.px = -10;
 
-  this.py += this.pstep - Math.floor(Math.random() * this.pstep * 2 + 0.5);
+  this.py += this.pstep - Math.floor(Math.random() * (this.pstep * 2 + 1));
   if(this.py > this.canvas.height + 10) this.py = this.canvas.height + 10;
   else if(this.py < -10) this.py = -10;
+};
+
+/*
+ * Run the movement logic.
+ * Check the settings, chose the appropriate mover.
+ */
+Drawer.prototype.move = function(){
+  switch(this.moveType){
+    case Drawer.MOVE_TYPES.MOVE_RAND:
+      return this.moveRand();
+    case Drawer.MOVE_TYPES.MOVE_POINT:
+      return this.movePoint();
+  }
+
+  return this.moveRand();
+};
+
+Drawer.prototype.drawInfo = function(){
+  var x = this.canvas.width - 8;
+  var y = 8;
+  var ym = 12;
+  var lines = 5; // How many lines of text we plan to draw
+
+  // Give infobox a bg since will look wack with fading bg
+  this.ctx.fillStyle = '#777';
+  this.ctx.fillRect(x + 4, y - 4, -110, ym * lines + 6);
+
+  this.ctx.fillStyle = '#0c7';
+  this.ctx.font = '10px sans-serif';
+  this.ctx.textAlign = 'right';
+  this.ctx.textBaseline = 'top';
+
+  this.ctx.fillText('Size, Step: ' + this.psize + ', ' + this.pstep, x, y);
+  y += ym;
+  this.ctx.fillText('Color: ' + this.color, x, y);
+  y += ym;
+  this.ctx.fillText('TColor: ' + this.newColor, x, y);
+  y += ym;
+  this.ctx.fillText('Move Type: ' + this.moveType + ' (' + (
+    this.moveType === Drawer.MOVE_TYPES.MOVE_POINT ? 'point' : 'rand'
+  ) + ')', x, y);
+  y += ym;
+  this.ctx.fillText('Circular: ' + (this.circular ? 'true' : 'false'), x, y);
+  y += ym;
 };
 
 /**
@@ -138,10 +261,12 @@ Drawer.prototype.drawFrame = function(){
     this.ctx.fillRect(this.px, this.py, this.psize, this.psize);
   } else {
     this.ctx.beginPath();
-    this.ctx.arc(this.px, this.py, this.psize, 0, Math.PI * 2);
+    this.ctx.arc(this.px, this.py, this.psize / 2, 0, Math.PI * 2);
     this.ctx.closePath();
     this.ctx.fill();
   }
+
+  if(this.showInfo) this.drawInfo();
 };
 
 
@@ -215,6 +340,18 @@ function drawareaSpecialInit(){
  * Load logic -- triggered when document is loaded and ready.
  */
 window.addEventListener('load', function(){
+  // Query param of "mc" will show mini-canvas
+  var loc = window.location.href;
+  if(loc.indexOf('?') > 0
+  && loc.substr(loc.indexOf('?')).match('[?&]mc\\b')
+  && !document.getElementById('minican')
+  ){
+    var minican = document.createElement('canvas');
+    minican.setAttribute('id', 'minican');
+    document.body.appendChild(minican);
+    console.info('Mini-canvas activated!');
+  }
+
   var clist = document.getElementsByTagName('canvas');
   for(var j = 0; j < clist.length; ++j){
     var c = clist[j];
@@ -224,6 +361,17 @@ window.addEventListener('load', function(){
 
   adjustSizes();
   window.addEventListener('resize', adjustSizes);
+
+  // Do some different stuff in the mini-canvas
+  var tmp = document.getElementById('minican');
+  if(tmp){
+    tmp.drawer.psize = 7;
+    tmp.drawer.pstep = 28;
+    tmp.drawer.bgColor = '#0000';
+    tmp.drawer.circular = false;
+    tmp.drawer.showInfo = false;
+    tmp.drawer.moveType = Drawer.MOVE_TYPES.MOVE_RAND;
+  }
 
   document.getElementById('errord').style.display = 'none';
 
