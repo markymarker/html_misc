@@ -37,6 +37,12 @@ Presents the spinners in an automatically-populated dropdown list for selecting 
 
 
 ------
+###### % ___lookup_mockup.html___
+
+A mockup put together to demonstrate an idea for a person selection flow. Nothing too crazy, but it's a nifty demonstration of the potential power of this format for quick interactive prototyping. Emphasis on prototype.
+
+
+------
 ###### % ___(snippets, etc)___
 
 Miscellaneous snippets for testing and noting and a page to make use of them.

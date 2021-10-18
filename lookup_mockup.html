@@ -1,0 +1,359 @@
+<!DOCTYPE HTML>
+<HTML><HEAD>
+<TITLE>Example Lookup Stuff</TITLE>
+<META charset="utf-8">
+<SCRIPT>
+
+function hideModals(){
+  for(let o of document.querySelectorAll('.modal')) o.classList.add('hide');
+}
+
+function showModal(id){
+  var mod = document.getElementById(id);
+  if(!mod) return;
+  hideModals();
+  mod.classList.remove('hide');
+}
+
+function hideModal(id){
+  if(id instanceof HTMLElement){
+    let el = id;
+    while(el && !el.classList.contains('modal')) el = el.parentElement;
+    if(!el) return;
+    id = el.id;
+  }
+
+  var mod = document.getElementById(id);
+  if(!mod) return;
+  mod.classList.add('hide');
+}
+
+function mockSub(e){
+  var form = e.target;
+
+  switch(form.id){
+  case 'new_sub_form': fillBlockFromNew('sub_block', form); hideModal(form);
+  break;
+  case 'new_cus_form': fillBlockFromNew('cus_block', form); hideModal(form);
+  break;
+  default: window.alert(form.getAttribute('data-name') + ' submit');
+  }
+
+  e.preventDefault();
+  e.stopPropagation();
+}
+
+function fillBlockInfo(which, info){
+  var el = document.getElementById(which);
+  if(!el) return;
+  el.classList.add('filled');
+  el.innerHTML =
+    info.first + ' ' + info.last + '<br>' +
+    info.phone + '<br>' +
+    info.line1;
+}
+
+function fillBlockFromNew(which, form){
+  fillBlockInfo(which, {
+    first: form.querySelector('input[name=first]').value,
+    last: form.querySelector('input[name=last]').value,
+    phone: form.querySelector('input[name=phone]').value,
+    'line1': form.querySelector('input[name=line1]').value,
+  });
+}
+
+window.addEventListener('load', function(){
+  for(let o of document.querySelectorAll('form'))
+    o.addEventListener('submit', mockSub);
+
+  document.getElementById('sub_block').addEventListener('click', function(){ showModal('subscriber'); });
+  document.getElementById('cus_block').addEventListener('click', function(){ showModal('customer'); });
+
+  document.getElementById('sample_sub_result').addEventListener('click', function(){
+    fillBlockInfo('sub_block', {first: 'Firstname', last: 'Lastname', phone: '(555) 123-1234', 'line1': '1234 Fake St.'});
+    hideModals();
+  });
+  document.getElementById('sample_cus_result').addEventListener('click', function(){
+    fillBlockInfo('cus_block', {first: 'Sample', last: 'Customer', phone: '(999) 888-7777', 'line1': '2200 Real St.'});
+    hideModals();
+  });
+});
+
+</SCRIPT>
+</HEAD><BODY>
+
+<div class="formwrapper"><FORM data-name="main form">
+  <div style="margin-bottom: 12px;">
+    <label>Package: <input type="text"></label>
+    <label>Device: <input type="text"></label>
+  </div><div class="wide-inps">
+    <label>Other Junk: <input type="text"></label>
+  </div><div class="wide-inps">
+    <label>Pick One: <select>
+      <option disabled selected>Do it</option>
+      <option>This one</option>
+      <option>That one</option>
+    </select></label>
+  </div>
+  <div class="spaced">
+    <div class="block-label">Subscriber:</div>
+    <div id="sub_block" class="personblock"><br>(click to select)</div>
+  </div>
+  <div class="spaced">
+    <div class="block-label">Customer:</div>
+    <div id="cus_block" class="personblock"><br>(click to select)</div>
+  </div>
+  <div class="button-container">
+    <input type="submit" value="submit order">
+  </div>
+</FORM></div>
+
+
+<!-- SUBSCRIBER STUFF -->
+
+<div id="subscriber" class="modal hide"><div>
+  <h2>This subscriber is:</h2>
+  <input type="button" class="choicebutton" value="New" onclick="showModal('subscriber_new')">
+  <input type="button" class="choicebutton" value="Returning" onclick="showModal('subscriber_lookup')">
+  <div class="button-container">
+    <input type="button" value="cancel" onclick="hideModal(this)">
+  </div>
+</div></div>
+
+<div id="subscriber_new" class="modal hide"><div>
+  <FORM id="new_sub_form" data-name="new subscriber">
+    <div class="inline-inps">
+      <label>First: <input name="first" type="text"></label>
+      <label>Last: <input name="last" type="text"></label>
+      <label>Phone: <input name="phone" type="text"></label>
+      <label>Address Line 1: <input name="line1" type="text"></label>
+      <label>Address Line 2: <input type="text"></label>
+      <label>City: <input type="text"></label>
+      <label>State: <input type="text"></label>
+      <label>Zip: <input type="text"></label>
+    </div>
+    <div class="button-container">
+      <input type="button" value="cancel" onclick="hideModal(this)">
+      <input type="submit" value="submit modal">
+    </div>
+  </FORM>
+</div></div>
+
+<div id="subscriber_lookup" class="modal hide"><div>
+  <FORM data-name="lookup subscriber">
+    <div>
+      <label>Subscriber Number: <input type="text"></label>
+    </div>
+    <h3 style="margin: 6px 0; padding: 0;">OR</h3>
+    <div class="search-group">
+      <label><input type="text" placeholder="First"></label>
+      <label><input type="text" placeholder="Last"></label>
+      <label><input type="text" placeholder="Phone"></label>
+      <label><input type="text" placeholder="Zip"></label>
+    </div>
+    <div class="button-container">
+      <input type="submit" value="search">
+    </div>
+  </FORM>
+  <div class="search-results">Results:<div id="subscriber_lookup_results">
+    <div id="sample_sub_result" class="single-result">
+      Firstname Lastname (555) 123-1234<br>
+      1234 Fake St. Citysville, Stateland 90210
+    </div>
+  </div></div>
+  <div class="button-container">
+    <input type="button" value="cancel" onclick="hideModal(this)">
+  </div>
+</div></div>
+
+
+<!-- CUSTOMER STUFF -->
+
+<div id="customer" class="modal hide"><div>
+  <h2>This customer is:</h2>
+  <input type="button" class="choicebutton" value="New" onclick="showModal('customer_new')">
+  <input type="button" class="choicebutton" value="Returning" onclick="showModal('customer_lookup')">
+  <div class="button-container">
+    <input type="button" value="cancel" onclick="hideModal(this)">
+  </div>
+</div></div>
+
+<div id="customer_new" class="modal hide"><div>
+  <FORM id="new_cus_form" data-name="new customer">
+    <div class="inline-inps">
+      <label>First: <input name="first" type="text"></label>
+      <label>Last: <input name="last" type="text"></label>
+      <label>Phone: <input name="phone" type="text"></label>
+      <label>Address Line 1: <input name="line1" type="text"></label>
+      <label>Address Line 2: <input type="text"></label>
+      <label>City: <input type="text"></label>
+      <label>State: <input type="text"></label>
+      <label>Zip: <input type="text"></label>
+    </div>
+    <div class="button-container">
+      <input type="button" value="cancel" onclick="hideModal(this)">
+      <input type="submit" value="submit modal">
+    </div>
+  </FORM>
+</div></div>
+
+<div id="customer_lookup" class="modal hide"><div>
+  <FORM data-name="lookup customer">
+    <div>
+      <label>Customer Number: <input type="text"></label>
+    </div>
+    <h3 style="margin: 6px 0; padding: 0;">OR</h3>
+    <div>
+      <label>Customer Email: <input type="text"></label>
+    </div>
+    <div class="button-container">
+      <input type="submit" value="search">
+    </div>
+  </FORM>
+  <div class="search-results">Results:<div id="customer_lookup_results">
+    <div id="sample_cus_result" class="single-result">
+      Sample Customer (999) 888-7777<br>
+      2200 Real St. Citysville, Stateland 90210
+    </div>
+  </div></div>
+  <div class="button-container">
+    <input type="button" value="cancel" onclick="hideModal(this)">
+  </div>
+</div></div>
+
+
+
+<STYLE>
+
+.personblock {
+  display: inline-block;
+  width: 220px;
+  height: 64px;
+  font-size: 18px;
+  background-color: lightblue;
+}
+
+.personblock.filled {
+  padding: 0 0 0 12px;
+  text-align: left;
+}
+
+.block-label {
+  display: inline-block;
+  height: 64px;
+  line-height: 64px;
+  text-align: center;
+}
+
+.choicebutton {
+  width: 200px;
+  padding: 4px 0;
+  border: 1px outset black;
+  font-size: 1.2em;
+}
+
+.modal {
+  position: fixed;
+  top: 0; bottom: 0;
+  left: 0; right: 0;
+  background-color: #0008;
+}
+
+.modal > div {
+  position: absolute;
+  top: 30%;
+  left: 50%;
+  width: 420px;
+  margin-left: -210px;
+  padding: 16px 0;
+  background-color: #aaa;
+}
+
+select {
+  min-width: 200px;
+}
+
+.search-results {
+  margin: 16px 0;
+}
+
+.search-results > div {
+  display: inline-block;
+  width: 96%;
+  height: 250px;
+  margin: 0 auto;
+  overflow-y: scroll;
+  background-color: #666;
+}
+
+.search-group input ,
+.search-group > label {
+  margin: 0 !important;
+}
+
+.search-group input {
+  width: 60px;
+}
+
+.wide-inps > label {
+  display: inline-block;
+  min-width: 300px;
+  text-align: right;
+}
+
+.wide-inps input[type=text] {
+  width: 200px;
+}
+
+.inline-inps {
+  margin-right: 100px;
+  text-align: right;
+}
+
+.inline-inps > label {
+  display: block;
+  width: 100%;
+  margin-left: 0 !important;
+}
+
+label:not(:first-child) {
+  margin-left: 25px;
+}
+
+.button-container {
+  margin-top: 16px;
+}
+
+.formwrapper {
+  display: inline-block;
+  width: 720px;
+  margin: 32px 0;
+  padding: 16px 8px;
+  background-color: #aaa;
+}
+
+.spaced {
+  margin: 20px 0;
+}
+
+.spaced > div {
+  vertical-align: middle;
+}
+
+.hide {
+  display: none;
+}
+
+h2 { margin: 0 0 16px 0; padding: 0; }
+
+body {
+  text-align: center;
+  background-color: #ccc;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+</STYLE>
+</BODY></HTML>
