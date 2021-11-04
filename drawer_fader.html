@@ -211,33 +211,38 @@ Drawer.prototype.move = function(){
   return this.moveRand();
 };
 
+/**
+ * Draw an infobox with info about this drawer's state onto its canvas.
+ */
 Drawer.prototype.drawInfo = function(){
   var x = this.canvas.width - 8;
   var y = 8;
   var ym = 12;
-  var lines = 5; // How many lines of text we plan to draw
+  var lines = [
+    'Size, Step: ' + this.psize + ', ' + this.pstep,
+    'Color: ' + this.color.toHex(),
+    'TColor: ' + this.newColor.toHex(),
 
-  // Give infobox a bg since will look wack with fading bg
+    'Move Type: ' + this.moveType + ' (' + (
+      this.moveType === Drawer.MOVE_TYPES.MOVE_POINT ? 'point' : 'rand'
+    ) + ')',
+
+    'Circular: ' + (this.circular ? 'true' : 'false')
+  ];
+
+  // Give infobox a bg since will otherwise look wack with fading bg
   this.ctx.fillStyle = '#777';
-  this.ctx.fillRect(x + 4, y - 4, -110, ym * lines + 6);
+  this.ctx.fillRect(x + 4, y - 4, -110, ym * lines.length + 6);
 
   this.ctx.fillStyle = '#0c7';
   this.ctx.font = '10px sans-serif';
   this.ctx.textAlign = 'right';
   this.ctx.textBaseline = 'top';
 
-  this.ctx.fillText('Size, Step: ' + this.psize + ', ' + this.pstep, x, y);
-  y += ym;
-  this.ctx.fillText('Color: ' + this.color.toHex(), x, y);
-  y += ym;
-  this.ctx.fillText('TColor: ' + this.newColor.toHex(), x, y);
-  y += ym;
-  this.ctx.fillText('Move Type: ' + this.moveType + ' (' + (
-    this.moveType === Drawer.MOVE_TYPES.MOVE_POINT ? 'point' : 'rand'
-  ) + ')', x, y);
-  y += ym;
-  this.ctx.fillText('Circular: ' + (this.circular ? 'true' : 'false'), x, y);
-  y += ym;
+  for(var j = 0; j < lines.length; ++j){
+    this.ctx.fillText(lines[j], x, y);
+    y += ym;
+  }
 };
 
 /**
