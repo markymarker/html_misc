@@ -1,4 +1,6 @@
-<!DOCTYPE html>
+<!DOCTYPE html><!--
+  vim: et sw=2 sts=2
+-->
 <HTML><HEAD>
 <TITLE>Drawer Fader</TITLE>
 <meta charset="utf-8">
@@ -74,8 +76,9 @@ function Drawer(can){
   this.canvas = can;
   this.ctx = can.getContext('2d');
 
-  this.color = '#000000';
-  this.newColor = this.color;
+  // color and newColor should be color objects, bgColor should not (yet)
+  this.color = Color.fromHex('#000000');
+  this.newColor = this.color.clone();
   this.bgColor = '#6666661b';
 
   this.px = 400;
@@ -129,34 +132,22 @@ Drawer.prototype.bgCover = function(){
  * color.
  */
 Drawer.prototype.colorShift = function(){
-  if(this.newColor === this.color){
-    if(Math.random() < 0.005) this.newColor = randColor();
+  if(this.newColor.equals(this.color)){
+    if(Math.random() < 0.005) this.newColor = new Color();
     return;
   }
 
-  var oc = parseInt(this.color.substr(1), 16);
-  var or = (oc >> 16) & 0xff;
-  var og = (oc >>  8) & 0xff;
-  var ob =  oc        & 0xff;
+  var oc = this.color;
+  var nc = this.newColor;
 
-  var nc = parseInt(this.newColor.substr(1), 16);
-  var nr = (nc >> 16) & 0xff;
-  var ng = (nc >>  8) & 0xff;
-  var nb =  nc        & 0xff;
+  if(oc.r < nc.r) ++oc.r;
+  else if(oc.r > nc.r) --oc.r;
 
-  if(or < nr) ++or;
-  else if(or > nr) --or;
+  if(oc.g < nc.g) ++oc.g;
+  else if(oc.g > nc.g) --oc.g;
 
-  if(og < ng) ++og;
-  else if(og > ng) --og;
-
-  if(ob < nb) ++ob;
-  else if(ob > nb) --ob;
-
-  this.color = '#'
-    + ('0' + or.toString(16)).substr(-2)
-    + ('0' + og.toString(16)).substr(-2)
-    + ('0' + ob.toString(16)).substr(-2);
+  if(oc.b < nc.b) ++oc.b;
+  else if(oc.b > nc.b) --oc.b;
 };
 
 /**
@@ -237,9 +228,9 @@ Drawer.prototype.drawInfo = function(){
 
   this.ctx.fillText('Size, Step: ' + this.psize + ', ' + this.pstep, x, y);
   y += ym;
-  this.ctx.fillText('Color: ' + this.color, x, y);
+  this.ctx.fillText('Color: ' + this.color.toHex(), x, y);
   y += ym;
-  this.ctx.fillText('TColor: ' + this.newColor, x, y);
+  this.ctx.fillText('TColor: ' + this.newColor.toHex(), x, y);
   y += ym;
   this.ctx.fillText('Move Type: ' + this.moveType + ' (' + (
     this.moveType === Drawer.MOVE_TYPES.MOVE_POINT ? 'point' : 'rand'
@@ -256,7 +247,7 @@ Drawer.prototype.drawFrame = function(){
   this.move();
   this.colorShift();
 
-  this.ctx.fillStyle = this.color;
+  this.ctx.fillStyle = this.color.toHex();
 
   if(!this.circular){
     this.ctx.fillRect(this.px, this.py, this.psize, this.psize);
@@ -279,15 +270,165 @@ var canvii = [];
 
 
 /**
- * Get a random color in hex color notation.
+ * Color object.
+ * Holds separate rgb values internally and provides methods for converting to
+ * and from other formats.
+ *
+ * Any color parameters that are not provided will be assigned random values.
+ * If the alpha parameter is not provided, alpha will be set to full.
+ *
+ * @param red Red value for color
+ * @param green Green value for color
+ * @param blue Blue value for color
+ * @param alpha Alpha value for color
  */
-function randColor(){
-	return '#'
-		+ ('0' + Math.floor(Math.random() * 256).toString(16)).substr(-2)
-		+ ('0' + Math.floor(Math.random() * 256).toString(16)).substr(-2)
-		+ ('0' + Math.floor(Math.random() * 256).toString(16)).substr(-2)
-	;
+function Color(red, green, blue, alpha){
+  this.r = (typeof red === 'number')
+    ? red
+    : Color.getRandomComponent();
+  this.g = (typeof green === 'number')
+    ? green
+    : Color.getRandomComponent();
+  this.b = (typeof blue === 'number')
+    ? blue
+    : Color.getRandomComponent();
+  this.a = (typeof alpha === 'number')
+    ? alpha
+    : 255;
+
+  this.validate();
 }
+
+
+/**
+ * Static helper method for getting random values in 0-255 range.
+ *
+ * @return Random value in range 0-255
+ */
+Color.getRandomComponent = function(){
+  return Math.floor(Math.random() * 256);
+};
+
+/**
+ * Get a color object from a hex value.
+ *
+ * @param hex The hex value to convert
+ * @return A color object with the same values as the hex
+ */
+Color.fromHex = function(hex){
+  // Convert short form to long form
+  hex = hex.replace(/^#([0-9a-f])([0-9a-f])([0-9a-f])([0-9a-f])?$/i, '#$1$1$2$2$3$3$4$4');
+  // Check that things look legit
+  if(!hex.match(/^#[0-9a-f]{6}(?:[0-9a-f]{2})?$/i)){
+    throw new Error('Invalid hex value provided to Color.fromHex: ' + hex);
+  }
+
+  var nval = parseInt(hex.substr(1), 16);
+  var alpha = 255;
+
+  // Handle alpha first and remove from value, if present
+  if(hex.length > 7){
+    alpha = nval & 0xff;
+    nval >>= 8;
+  }
+
+  return new Color(
+    (nval >> 16) & 0xff,
+    (nval >>  8) & 0xff,
+     nval        & 0xff,
+    alpha
+  );
+};
+
+/**
+ * Get a color from a rbga function string.
+ * Input looks like: rgba(1, 2, 3, 4)
+ *
+ * @param rgbaString The string to convert
+ * @return A color object with the same values as the string
+ */
+Color.fromRGBA = function(rgbaString){
+  // Repulsive in its splendid beauty
+  var pieces = rgbaString.match(
+    /^\s*rgba\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)\s*$/
+  );
+
+  if(!pieces) throw new Error('Invalid value provided to Color.fromRGBA: ' + rgbaString);
+
+  return new Color(
+    +pieces[1],
+    +pieces[2],
+    +pieces[3],
+    +pieces[4]
+  );
+};
+
+
+/**
+ * Check the values held by the color for validity.
+ * Throws errors when invalid.
+ */
+Color.prototype.validate = function(){
+  var outtaWack = '';
+
+  if(this.r < 0 || 255 < this.r) outtaWack += 'r=' + this.r + ' ';
+  if(this.g < 0 || 255 < this.g) outtaWack += 'g=' + this.g + ' ';
+  if(this.b < 0 || 255 < this.b) outtaWack += 'b=' + this.b + ' ';
+  if(this.a < 0 || 255 < this.a) outtaWack += 'a=' + this.a + ' ';
+
+  if(outtaWack.length > 0) throw new Error('Color is invalid: ' + outtaWack);
+};
+
+/**
+ * Create a new object with all the same values as this color object.
+ *
+ * @return The newly created color object
+ */
+Color.prototype.clone = function(){
+  return new Color(this.r, this.g, this.b, this.a);
+};
+
+/**
+ * Check for color equality with another object.
+ * The two are considered equal iff they are both color objects and are both
+ * holding the same values.
+ *
+ * @return TRUE if equal, FALSE if not
+ */
+Color.prototype.equals = function(obj){
+  return obj instanceof Color
+    && this.r === obj.r
+    && this.g === obj.g
+    && this.b === obj.b
+    && this.a === obj.a
+  ;
+};
+
+/**
+ * Get the color value as a hex string.
+ *
+ * @return The color value as a hex string, surprise
+ */
+Color.prototype.toHex = function(){
+  return '#'
+    + ('0' + this.r.toString(16)).substr(-2)
+    + ('0' + this.g.toString(16)).substr(-2)
+    + ('0' + this.b.toString(16)).substr(-2)
+    + ('0' + this.a.toString(16)).substr(-2);
+};
+
+/**
+ * Get the color value as a rgba value set.
+ *
+ * @return The color as a rgba value set, woah
+ */
+Color.prototype.toRGBA = function(){
+  return 'rgba('
+    + this.r + ','
+    + this.g + ','
+    + this.b + ','
+    + this.a + ')';
+};
 
 
 /**
